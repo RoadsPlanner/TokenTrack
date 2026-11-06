@@ -801,7 +801,8 @@ Tableau de bord enregistré : ${sortie}`);
 // sans barre d'adresse ni onglets). À défaut, dans le navigateur par défaut.
 function ouvrirFenetre(page) {
   const { spawn, execFileSync } = require('child_process');
-  const lancer = (exe, args) => spawn(exe, args, { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+  // windowsHide seulement pour cmd : appliqué au navigateur, il rendrait sa fenêtre invisible.
+  const lancer = (exe, args, cacher = false) => spawn(exe, args, { detached: true, stdio: 'ignore', windowsHide: cacher }).unref();
   if (process.platform !== 'win32') return lancer(process.platform === 'darwin' ? 'open' : 'xdg-open', [page]);
 
   const cheminRegistre = nom => {
@@ -829,7 +830,7 @@ function ouvrirFenetre(page) {
       return;
     }
   }
-  lancer('cmd', ['/c', 'start', '', page]);
+  lancer('cmd', ['/c', 'start', '', page], true);
   console.log('Ouverture dans le navigateur...');
 }
 
