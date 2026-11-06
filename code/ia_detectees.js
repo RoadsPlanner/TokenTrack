@@ -15,9 +15,18 @@ const os = require('os');
 const path = require('path');
 
 const MAISON = os.homedir();
-const ROAMING = process.env.APPDATA || path.join(MAISON, 'AppData', 'Roaming');
-const LOCAL = process.env.LOCALAPPDATA || path.join(MAISON, 'AppData', 'Local');
-const PROGRAMMES = [path.join(LOCAL, 'Programs'), process.env.ProgramFiles || 'C:\\Program Files', process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)'];
+const WIN = process.platform === 'win32';
+const MAC = process.platform === 'darwin';
+const SYSTEME = WIN ? 'Windows' : MAC ? 'macOS' : 'Linux';
+// Dossiers de données des applications : ROAMING = réglages (VS Code, Claude…), LOCAL = données.
+const SUPPORT_MAC = path.join(MAISON, 'Library', 'Application Support');
+const ROAMING = WIN ? (process.env.APPDATA || path.join(MAISON, 'AppData', 'Roaming'))
+  : MAC ? SUPPORT_MAC : (process.env.XDG_CONFIG_HOME || path.join(MAISON, '.config'));
+const LOCAL = WIN ? (process.env.LOCALAPPDATA || path.join(MAISON, 'AppData', 'Local'))
+  : MAC ? SUPPORT_MAC : (process.env.XDG_DATA_HOME || path.join(MAISON, '.local', 'share'));
+const PROGRAMMES = WIN ? [path.join(LOCAL, 'Programs'), process.env.ProgramFiles || 'C:\\Program Files', process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)']
+  : MAC ? ['/Applications', path.join(MAISON, 'Applications')]
+  : ['/opt', '/usr/share', path.join(MAISON, '.local', 'share')];
 
 // Les outils en ligne de commande peuvent aussi être installés dans WSL (Linux sous Windows).
 // Leurs dossiers personnels sont lus par \\wsl.localhost\<distribution>\home\<nom>.
@@ -137,12 +146,13 @@ function detecterIA() {
   // Applications et lignes de commande
   for (const a of APPLICATIONS) {
     if (a.toujours) { ajouter(a, null); continue; }
-    const preuves = (a.traces || []).filter(existe);
+    // Sur Mac, les applications sont des dossiers « Nom.app ».
+    const preuves = (a.traces || []).flatMap(t => MAC ? [t, t + '.app'] : [t]).filter(existe);
     // Traces relatives à un dossier personnel : Windows et WSL (la distribution est indiquée dans « Où »).
     for (const maison of a.dansMaison ? maisons() : []) {
       for (const p of a.dansMaison.map(morceaux => path.join(maison, ...morceaux)).filter(existe)) {
         const wsl = maison.match(/^\\\\wsl\.localhost\\([^\\]+)/);
-        ajouter(a, wsl ? `WSL ${wsl[1]}` : 'Windows', p);
+        ajouter(a, wsl ? `WSL ${wsl[1]}` : SYSTEME, p);
       }
     }
     for (const [dossier, motif] of a.motifs || []) for (const n of lister(dossier)) if (motif.test(n)) preuves.push(path.join(dossier, n));
@@ -179,4 +189,4 @@ function detecterIA() {
   return [...trouvees.values()];
 }
 
-module.exports = { detecterIA, maisons, options, IDE_VSCODE, ROAMING, LOCAL };
+module.exports = { detecterIA, maisons, options, IDE_VSCODE, ROAMING, LOCAL, WIN, MAC };

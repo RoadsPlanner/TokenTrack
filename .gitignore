@@ -1,3 +1,6 @@
 # Fichiers générés par installateur/construire.cmd
 installateur/*.exe
 installateur/temp/
+
+# Programmes Mac et Linux (installateur/construire.js --cibles)
+installateur/TokTrack-*

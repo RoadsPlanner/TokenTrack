@@ -1,0 +1,60 @@
+# Fabrique les versions Mac et Linux de Tok&Track à chaque publication
+# (publier.cmd crée la release avec la version Windows) et les ajoute à la release.
+# Construit sur un Mac pour pouvoir signer les versions Mac.
+name: Versions Mac et Linux
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Version à compléter (ex. v1.0.2)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  construire:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Fabriquer les programmes
+        run: node installateur/construire.js --cibles darwin-arm64,darwin-x64,linux-x64,linux-arm64 --version "${TAG#v}"
+      - name: Tester la version Mac
+        run: installateur/TokTrack-mac-arm64 --aide
+      - uses: actions/upload-artifact@v4
+        with:
+          name: programmes
+          path: installateur/TokTrack-*
+
+  tester-linux:
+    needs: construire
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: programmes
+      - name: Tester la version Linux
+        run: chmod +x TokTrack-linux-x64 && ./TokTrack-linux-x64 --aide
+
+  publier:
+    needs: [construire, tester-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: programmes
+      - name: Ajouter les programmes à la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$TAG" TokTrack-* --clobber --repo "${{ github.repository }}"

@@ -11,14 +11,23 @@ Tout est calculé sur ton PC. Aucune IA n'est appelée : le suivi ne coûte aucu
 
 ## 🚀 Installer
 
-### [⬇️ Télécharger Tok&Track pour Windows](https://github.com/RoadsPlanner/TokenTrack/releases/latest/download/Installer-TokTrack.exe)
+Pas besoin de télécharger le projet, ni d'installer Node.js, ni d'avoir les droits administrateur.
 
-1. Lance le fichier téléchargé et clique sur **Suivant** jusqu'au bout.
-2. Ouvre **Tok&Track** depuis le menu Démarrer ou le Bureau.
+### 🪟 Windows
 
-C'est tout. Pas besoin de télécharger le projet, ni d'installer Node.js, ni d'avoir les droits administrateur.
+**[⬇️ Télécharger Tok&Track pour Windows](https://github.com/RoadsPlanner/TokenTrack/releases/latest/download/Installer-TokTrack.exe)**, lance le fichier et clique sur **Suivant** jusqu'au bout. Tok&Track apparaît dans le menu Démarrer.
 
 > Si Windows affiche « Windows a protégé votre ordinateur » : **Informations complémentaires** › **Exécuter quand même**.
+
+### 🍎 Mac et 🐧 Linux
+
+Ouvre le **Terminal**, colle cette ligne et appuie sur Entrée :
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RoadsPlanner/TokenTrack/main/installateur/installer.sh | sh
+```
+
+Tok&Track s'ouvre, puis se retrouve dans **Applications** (Mac) ou dans le **menu des applications** (Linux).
 
 ---
 
@@ -26,25 +35,25 @@ C'est tout. Pas besoin de télécharger le projet, ni d'installer Node.js, ni d'
 
 ### Pour les utilisateurs : rien à faire
 
-On installe l'appli une seule fois. Ensuite, à chaque ouverture, Tok&Track vérifie s'il existe une nouvelle version. Si oui, il l'installe tout seul et se rouvre : l'ouverture prend juste une dizaine de secondes de plus cette fois-là.
+On installe l'appli une seule fois. Ensuite, à chaque ouverture, Tok&Track vérifie s'il existe une nouvelle version. Si oui, il l'installe tout seul et se rouvre : l'ouverture prend juste quelques secondes de plus cette fois-là.
 
 ### Pour publier une nouvelle version
 
 1. Modifie le code dans `code/`.
-2. Double-clique sur **`installateur/publier.cmd`** et attends le message « Version … publiée ».
-3. Commite et pousse tes changements (dont `code/version.json`).
+2. Commite tes changements.
+3. Double-clique sur **`installateur/publier.cmd`** et attends « Version … publiée ».
 
-`publier.cmd` augmente le numéro de version, crée l'installeur et le met en ligne dans les **Releases** du dépôt. C'est cette étape qui met à jour les utilisateurs. Le push garde simplement le code à jour sur GitHub.
+`publier.cmd` augmente le numéro de version, pousse le code sur GitHub et publie la version Windows dans les **Releases**. GitHub fabrique ensuite tout seul les versions Mac et Linux (environ 5 minutes, visible dans l'onglet **Actions**). Chaque ordinateur passe à la nouvelle version à sa prochaine ouverture.
 
 > **La première fois seulement**, connecte GitHub dans un terminal avec `gh auth login`. Il faut avoir le droit de publier sur `RoadsPlanner/TokenTrack`.
 >
-> 🔒 Tous les PC installent ce qui est publié : ne donne ce droit qu'à des personnes de confiance.
+> 🔒 Tous les ordinateurs installent ce qui est publié : ne donne ce droit qu'à des personnes de confiance.
 
 ---
 
 ## 👀 Utiliser
 
-Le tableau de bord s'ouvre dans sa propre fenêtre. Ferme-la et rouvre Tok&Track pour actualiser les chiffres.
+Le tableau de bord s'ouvre dans sa propre fenêtre (avec Edge, Chrome ou Brave ; sinon dans ton navigateur). Ferme-la et rouvre Tok&Track pour actualiser les chiffres.
 
 - **Fiches IA** : clique sur une IA pour ne voir qu'elle.
 - **Vue et période** : au-dessus du graphique (heure, jour, semaine, mois).
@@ -70,7 +79,7 @@ Le tableau de bord s'ouvre dans sa propre fenêtre. Ferme-la et rouvre Tok&Track
 |---|---|
 | Claude Code, Antigravity, Cline, Roo Code, Kilo Code | ✓ tokens réels |
 | GitHub Copilot (VS Code) | ✓ réels, ≈ pour les anciennes requêtes |
-| Gemini CLI, OpenAI Codex (Windows et WSL) | ✓ tokens réels |
+| Gemini CLI, OpenAI Codex | ✓ tokens réels (et dans WSL sous Windows) |
 | Claude en chat (claude.ai) | ≈ estimé depuis ton export |
 | Application Claude | % du quota d'abonnement |
 | Cursor, Windsurf, ChatGPT, Ollama… | détectées, sans compteur |
@@ -82,7 +91,7 @@ Le tableau de bord s'ouvre dans sa propre fenêtre. Ferme-la et rouvre Tok&Track
 1. Sur claude.ai : **Paramètres › Confidentialité › Exporter les données**.
 2. Ouvre le fichier `manifest-….json` reçu avec le Bloc-notes, cherche `"category": "conversations"` et copie le lien `export_url` juste au-dessus.
 3. Colle ce lien dans ton navigateur : **`conversations-000.zip`** se télécharge.
-4. Dépose le zip dans **`exports-claude-ai`** (menu Démarrer › *Dossier des données Tok&Track*), puis rouvre Tok&Track.
+4. Dépose le zip dans le dossier **`exports-claude-ai`** des données (voir *Données et réglages*), puis rouvre Tok&Track.
 
 Le lien expire en 24 h maximum. Refais un export chaque mois : rien n'est compté deux fois.
 
@@ -96,7 +105,13 @@ L'export contient le texte des conversations mais aucun compteur. Tok&Track comp
 
 ## ⚙️ Données et réglages
 
-Tout est dans **`%LOCALAPPDATA%\Tok&Track`** (menu Démarrer › *Dossier des données Tok&Track*). Ces fichiers restent si tu désinstalles.
+| Système | Dossier des données |
+|---|---|
+| Windows | `%LOCALAPPDATA%\Tok&Track` (menu Démarrer › *Dossier des données Tok&Track*) |
+| Mac | `~/Library/Application Support/Tok&Track` |
+| Linux | `~/.local/share/tok-track` |
+
+Ces fichiers restent si tu désinstalles l'appli.
 
 | Fichier | Rôle |
 |---|---|
@@ -126,15 +141,25 @@ Les conversations de ces dossiers qui contiennent ces mots-clés sont rangées d
 ## 🛠️ Développement
 
 ```
-Tok&Track/
-├── code/           le programme (JavaScript)
+TokenTrack/
+├── code/               le programme (JavaScript)
 ├── installateur/
-│   ├── publier.cmd     publie une mise à jour pour tous les PC
-│   └── construire.cmd  crée l'installeur sans le publier (pour tester)
-└── docs/           image du README
+│   ├── publier.cmd     publie une mise à jour pour tous les ordinateurs
+│   ├── construire.cmd  crée l'installeur Windows sans le publier (pour tester)
+│   └── installer.sh    installation Mac et Linux
+├── .github/workflows/  fabrication automatique des versions Mac et Linux
+└── docs/               image du README
 ```
 
-Outils nécessaires : [Node.js](https://nodejs.org) 22.5+, [Inno Setup 6](https://jrsoftware.org/isinfo.php), [GitHub CLI](https://cli.github.com).
+Outils nécessaires (sous Windows) : [Node.js](https://nodejs.org) 22.5+, [Inno Setup 6](https://jrsoftware.org/isinfo.php), [GitHub CLI](https://cli.github.com).
+
+<details>
+<summary>Désinstaller</summary>
+
+- **Windows** : menu Démarrer › *Désinstaller Tok&Track*.
+- **Mac** : supprime `Tok&Track` du dossier Applications de ton dossier personnel.
+- **Linux** : supprime `~/.local/share/tok-track/TokTrack` et `~/.local/share/applications/tok-track.desktop`.
+</details>
 
 Lancer sans installer :
 

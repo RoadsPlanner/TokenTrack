@@ -24,28 +24,39 @@ const path = require('path');
 process.removeAllListeners('warning'); // masque l'avertissement « SQLite is experimental »
 const { DatabaseSync } = require('node:sqlite');
 
-const { detecterIA, options: optionsDetection } = require('./ia_detectees');
+const { detecterIA, options: optionsDetection, ROAMING, LOCAL, WIN, MAC } = require('./ia_detectees');
 const { lireCopilot, lireTachesExtensions } = require('./lecteurs_ide');
 const { lireGeminiCli, lireCodex } = require('./lecteurs_cli');
 
-// Les données (réglages, historique, page générée, exports claude.ai) sont rangées
-// dans %LOCALAPPDATA%\Tok&Track, que l'on lance l'exe ou le script.
-// Dans l'exe, le modèle de page et la config par défaut sont intégrés.
+// Les données (réglages, historique, page générée, exports claude.ai) sont rangées dans
+// %LOCALAPPDATA%\Tok&Track (Windows), ~/Library/Application Support/Tok&Track (Mac)
+// ou ~/.local/share/tok-track (Linux), que l'on lance l'appli ou le script.
+// Dans l'appli, le modèle de page et la config par défaut sont intégrés.
 const SEA = (() => { try { const s = require('node:sea'); return s.isSea() ? s : null; } catch { return null; } })();
 const ressource = nom => SEA ? SEA.getAsset(nom, 'utf8') : fs.readFileSync(path.join(__dirname, nom), 'utf8');
-const ICI = path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Tok&Track');
+const ICI = path.join(LOCAL, WIN || MAC ? 'Tok&Track' : 'tok-track');
 fs.mkdirSync(path.join(ICI, 'exports-claude-ai'), { recursive: true });
 if (!fs.existsSync(path.join(ICI, 'config.json'))) fs.writeFileSync(path.join(ICI, 'config.json'), ressource('config.json'));
 const lireModele = () => ressource('modele_tableau_de_bord.html');
 
-// L'exe tourne sans fenêtre de console : les messages importants s'affichent
-// dans une boîte de dialogue Windows.
+// L'appli tourne sans console : les messages importants s'affichent dans une boîte de dialogue.
+// (Le texte passe par une variable d'environnement, jamais dans la commande elle-même.)
 function prevenir(message, erreur) {
   (erreur ? console.error : console.log)(message);
-  if (!SEA || process.platform !== 'win32') return;
-  require('child_process').spawnSync('powershell', ['-NoProfile', '-Command',
-    `Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($env:TOKTRACK_MSG, 'Tok&Track', 'OK', '${erreur ? 'Error' : 'Information'}')`],
-  { windowsHide: true, env: { ...process.env, TOKTRACK_MSG: message } });
+  if (!SEA) return;
+  const { spawnSync } = require('child_process');
+  const env = { ...process.env, TOKTRACK_MSG: message };
+  if (WIN) {
+    spawnSync('powershell', ['-NoProfile', '-Command',
+      `Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show($env:TOKTRACK_MSG, 'Tok&Track', 'OK', '${erreur ? 'Error' : 'Information'}')`],
+    { windowsHide: true, env });
+  } else if (MAC) {
+    spawnSync('osascript', ['-e', `display dialog (system attribute "TOKTRACK_MSG") with title "Tok&Track" buttons {"OK"} default button 1 with icon ${erreur ? 'stop' : 'note'}`], { env });
+  } else {
+    for (const [cmd, args] of [['zenity', [erreur ? '--error' : '--info', '--title=Tok&Track', `--text=${message}`]], ['kdialog', ['--title', 'Tok&Track', erreur ? '--error' : '--msgbox', message]]]) {
+      if (!spawnSync(cmd, args, { env }).error) return;
+    }
+  }
 }
 const AIDE = `
 Tok&Track — suivi des tokens IA
@@ -503,10 +514,8 @@ function extraireClaudeAi(config) {
 // compris (claude.ai, appli, Claude Code), mais seulement pendant que l'appli est ouverte.
 function fichiersQuota(config) {
   if (config.fichiersQuotaClaude) return config.fichiersQuotaClaude;
-  const local = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-  const roaming = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
-  const candidats = [path.join(roaming, 'Claude', 'plan-usage-history.json')];
-  for (const base of [path.join(local, 'Claude-Data'), path.join(local, 'Packages')]) {
+  const candidats = [path.join(ROAMING, 'Claude', 'plan-usage-history.json')];
+  for (const base of WIN ? [path.join(LOCAL, 'Claude-Data'), path.join(LOCAL, 'Packages')] : []) {
     if (!fs.existsSync(base)) continue;
     for (const d of fs.readdirSync(base)) {
       candidats.push(path.join(base, d, 'plan-usage-history.json'));
@@ -800,11 +809,36 @@ Tableau de bord enregistré : ${sortie}`);
 // Ouvre la page dans sa propre fenêtre (mode « application » d'Edge, Chrome ou Brave :
 // sans barre d'adresse ni onglets). À défaut, dans le navigateur par défaut.
 function ouvrirFenetre(page) {
-  const { spawn, execFileSync } = require('child_process');
+  const { spawn } = require('child_process');
   // windowsHide seulement pour cmd : appliqué au navigateur, il rendrait sa fenêtre invisible.
-  const lancer = (exe, args, cacher = false) => spawn(exe, args, { detached: true, stdio: 'ignore', windowsHide: cacher }).unref();
-  if (process.platform !== 'win32') return lancer(process.platform === 'darwin' ? 'open' : 'xdg-open', [page]);
+  const lancer = (exe, args, cacher = false) => {
+    const p = spawn(exe, args, { detached: true, stdio: 'ignore', windowsHide: cacher });
+    p.on('error', () => prevenir(`Impossible d'ouvrir la page. Ouvre-la toi-même :\n${page}`, true));
+    p.unref();
+  };
+  const exe = navigateurs().find(f => f && fs.existsSync(f));
+  if (exe) {
+    lancer(exe, [`--app=${require('url').pathToFileURL(page).href}`, '--window-size=1400,900']);
+    console.log('Ouverture de la fenêtre Tok&Track...');
+  } else {
+    if (WIN) lancer('cmd', ['/c', 'start', '', page], true);
+    else lancer(MAC ? 'open' : 'xdg-open', [page]);
+    console.log('Ouverture dans le navigateur...');
+  }
+}
 
+// Navigateurs qui savent ouvrir une page en fenêtre d'application, par ordre de préférence.
+function navigateurs() {
+  if (MAC) {
+    return ['Microsoft Edge', 'Google Chrome', 'Brave Browser', 'Chromium'].flatMap(nom =>
+      ['/Applications', path.join(os.homedir(), 'Applications')].map(d => path.join(d, `${nom}.app`, 'Contents', 'MacOS', nom)));
+  }
+  if (!WIN) {
+    const dossiers = (process.env.PATH || '').split(path.delimiter).filter(Boolean);
+    return ['microsoft-edge', 'microsoft-edge-stable', 'google-chrome', 'google-chrome-stable', 'chromium', 'chromium-browser', 'brave-browser', 'brave']
+      .flatMap(nom => dossiers.map(d => path.join(d, nom)));
+  }
+  const { execFileSync } = require('child_process');
   const cheminRegistre = nom => {
     for (const racine of ['HKCU', 'HKLM']) {
       try {
@@ -822,16 +856,7 @@ function ouvrirFenetre(page) {
     ['chrome.exe', 'Google\\Chrome\\Application\\chrome.exe'],
     ['brave.exe', 'BraveSoftware\\Brave-Browser\\Application\\brave.exe'],
   ];
-  for (const [nom, relatif] of candidats) {
-    const exe = [cheminRegistre(nom), ...pf.map(d => path.join(d, relatif))].find(f => f && fs.existsSync(f));
-    if (exe) {
-      lancer(exe, [`--app=${require('url').pathToFileURL(page).href}`, '--window-size=1400,900']);
-      console.log('Ouverture de la fenêtre Tok&Track...');
-      return;
-    }
-  }
-  lancer('cmd', ['/c', 'start', '', page], true);
-  console.log('Ouverture dans le navigateur...');
+  return candidats.flatMap(([nom, relatif]) => [cheminRegistre(nom), ...pf.map(d => path.join(d, relatif))]);
 }
 
 function afficher(o, config, { reponses: toutes, nbConversations }) {
