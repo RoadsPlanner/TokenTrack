@@ -12,7 +12,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const DEPOT = 'RoadsPlanner/Tok-Track';
+const DEPOT = 'RoadsPlanner/TokenTrack';
 const FICHIER = 'Installer-TokTrack.exe';
 // TOKTRACK_MAJ_URL : adresse de remplacement, pour tester la mise à jour en local.
 const API = process.env.TOKTRACK_MAJ_URL || `https://api.github.com/repos/${DEPOT}/releases/latest`;

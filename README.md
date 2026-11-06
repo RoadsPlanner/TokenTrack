@@ -11,7 +11,7 @@ Tout est calculé sur ton PC. Aucune IA n'est appelée : le suivi ne coûte aucu
 
 ## 🚀 Installer
 
-### [⬇️ Télécharger Tok&Track pour Windows](https://github.com/RoadsPlanner/Tok-Track/releases/latest/download/Installer-TokTrack.exe)
+### [⬇️ Télécharger Tok&Track pour Windows](https://github.com/RoadsPlanner/TokenTrack/releases/latest/download/Installer-TokTrack.exe)
 
 1. Lance le fichier téléchargé et clique sur **Suivant** jusqu'au bout.
 2. Ouvre **Tok&Track** depuis le menu Démarrer ou le Bureau.
@@ -36,7 +36,7 @@ On installe l'appli une seule fois. Ensuite, à chaque ouverture, Tok&Track vér
 
 `publier.cmd` augmente le numéro de version, crée l'installeur et le met en ligne dans les **Releases** du dépôt. C'est cette étape qui met à jour les utilisateurs. Le push garde simplement le code à jour sur GitHub.
 
-> **La première fois seulement**, connecte GitHub dans un terminal avec `gh auth login`. Il faut avoir le droit de publier sur `RoadsPlanner/Tok-Track`.
+> **La première fois seulement**, connecte GitHub dans un terminal avec `gh auth login`. Il faut avoir le droit de publier sur `RoadsPlanner/TokenTrack`.
 >
 > 🔒 Tous les PC installent ce qui est publié : ne donne ce droit qu'à des personnes de confiance.
 

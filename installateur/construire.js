@@ -19,7 +19,7 @@ const TEMP = path.join(ICI, 'temp');
 const EXE = path.join(TEMP, 'TokTrack.exe');
 const MODULES = ['ia_detectees', 'lecteurs_cli', 'lecteurs_ide', 'mise_a_jour', 'suivi_tokens'];
 const FICHIER_VERSION = path.join(CODE, 'version.json');
-const DEPOT = 'RoadsPlanner/Tok-Track';
+const DEPOT = 'RoadsPlanner/TokenTrack';
 const PUBLIER = process.argv.includes('--publier');
 
 // Publication : passe à la version suivante (1.0.3 → 1.0.4) avant de construire.
