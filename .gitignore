@@ -1,0 +1,3 @@
+# Fichiers générés par installateur/construire.cmd
+installateur/*.exe
+installateur/temp/
