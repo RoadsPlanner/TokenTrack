@@ -37,7 +37,9 @@ const ressource = nom => SEA ? SEA.getAsset(nom, 'utf8') : fs.readFileSync(path.
 const ICI = path.join(LOCAL, WIN || MAC ? 'Tok&Track' : 'tok-track');
 fs.mkdirSync(path.join(ICI, 'exports-claude-ai'), { recursive: true });
 if (!fs.existsSync(path.join(ICI, 'config.json'))) fs.writeFileSync(path.join(ICI, 'config.json'), ressource('config.json'));
-const lireModele = () => ressource('modele_tableau_de_bord.html');
+// L'aimant animé (aimant.js) est intégré dans les pages : elles restent autonomes, sans fichier à côté.
+const avecAimant = html => html.replace('/*__AIMANT__*/', () => ressource('aimant.js').replace(/<\/script/gi, '<\\/script'));
+const lireModele = () => avecAimant(ressource('modele_tableau_de_bord.html'));
 const PAGE = path.join(ICI, 'tableau-de-bord-tokens.html');
 let fenetreOuverte = false;
 
@@ -49,16 +51,28 @@ function ecrirePage(html) {
   fs.renameSync(temp, PAGE);
 }
 
-// Petite page de message. « attente » : elle se recharge chaque seconde, jusqu'à ce
-// que le tableau de bord la remplace.
+// Petite page de message, aux couleurs du thème choisi dans le tableau de bord, avec l'aimant
+// qui attire les tokens. « attente » : elle se recharge toute seule jusqu'à ce que le tableau
+// de bord la remplace.
 function pageMessage(texte, attente) {
   const echappe = String(texte).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Tok&amp;Track</title>
-${attente ? '<meta http-equiv="refresh" content="1">' : ''}
-<style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font:16px system-ui,sans-serif;background:#f6f7f9;color:#222}
-@media(prefers-color-scheme:dark){body{background:#16181c;color:#e8e8e8}}
-div{text-align:center;max-width:36em;padding:1em;white-space:pre-wrap}h1{font-size:1.4em}</style></head>
-<body><div><h1>📊 Tok&amp;Track</h1><p>${echappe}</p></div></body></html>`;
+  return avecAimant(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Tok&amp;Track</title>
+${attente ? '<meta http-equiv="refresh" content="2">' : ''}
+<style>
+:root{color-scheme:light;--page:#fbf5e4;--surface:rgba(255,253,247,.9);--ring:rgba(120,90,20,.16);--ink:#1d1708;--ink-2:#5d5440;--aimant-corps:#e5484d;--aimant-pointe:#9aa4b2;--token:#d9a200;--token-halo:0;--or-fond:#f6e7b8;--or-clair:#fff6d6;--or-sombre:#e2c56a;--or-fil:#ffffff;--or-halo:#f0c43a}
+:root[data-theme="dark"]{color-scheme:dark;--page:#120d03;--surface:rgba(24,19,9,.88);--ring:rgba(255,215,120,.16);--ink:#f6f0e2;--ink-2:#cbbf9f;--aimant-pointe:#e6dcc4;--token:#f5c518;--token-halo:1;--or-fond:#2b1f03;--or-clair:#c99a06;--or-sombre:#0d0901;--or-fil:#fff3a6;--or-halo:#ffd84a}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--ink);background:var(--page)}
+.boite{position:relative;z-index:1;text-align:center;max-width:36em;padding:1.4em 2em;background:var(--surface);border:1px solid var(--ring);border-radius:14px}
+canvas{width:264px;height:112px;display:block;margin:0 auto 10px}
+h1{font-size:1.5em;margin:0 0 6px;letter-spacing:-.3px}
+p{margin:0;color:var(--ink-2);white-space:pre-wrap}
+</style>
+<script>var t=null;try{t=localStorage.getItem('toktrack-theme')}catch(e){}if(t==='magnet')t='dark';if(t!=='light'&&t!=='dark')t=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t</script>
+</head>
+<body><div class="boite">${attente ? '<canvas id="aimant" aria-hidden="true"></canvas>' : ''}<h1>Tok&amp;Track</h1><p>${echappe}</p></div>
+<script>/*__AIMANT__*/</script>
+<script>fondOndes();${attente ? "aimant(document.getElementById('aimant'),{tokens:22});setTimeout(function(){location.reload()},1500);" : ''}</script>
+</body></html>`);
 }
 
 // Un seul Tok&Track à la fois : deux lancements en même temps (double-clic répété)
@@ -846,7 +860,7 @@ async function main() {
   }
   // La fenêtre s'ouvre tout de suite sur « calcul en cours » ; le tableau de bord la remplace ensuite.
   if (o.vue === 'tableau-de-bord' && !o.sansOuvrir) {
-    ecrirePage(pageMessage('Calcul de tes tokens en cours…\nLe tableau de bord s\'affiche dans quelques secondes.', true));
+    ecrirePage(pageMessage('Les tokens arrivent…\nLe tableau de bord s\'affiche dans quelques secondes.', true));
     ouvrirFenetre(PAGE);
     fenetreOuverte = true;
   }
@@ -897,7 +911,7 @@ function tableauDeBord(o, config, { reponses, quota, ia }) {
     lignes: reponses.map(r => [r.date, r.projet, r.modele, r.conversation, r.entree, r.sortie, r.cache, r.reflexion, r.outil, r.heure]),
   };
   const json = JSON.stringify(donnees).replace(/</g, '\\u003c');
-  ecrirePage(modele.replace("/*__DONNEES__*/ { genere: '', lignes: [], colonnes: [] }", json));
+  ecrirePage(modele.replace("/*__DONNEES__*/ { genere: '', lignes: [], colonnes: [] }", () => json));
   console.log(`
 Tableau de bord enregistré : ${PAGE}`);
   if (!o.sansOuvrir && !fenetreOuverte) ouvrirFenetre(PAGE);

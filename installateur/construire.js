@@ -96,6 +96,7 @@ fs.writeFileSync(configSea, JSON.stringify({
   assets: {
     'config.json': path.join(CODE, 'config.json'),
     'modele_tableau_de_bord.html': path.join(CODE, 'modele_tableau_de_bord.html'),
+    'aimant.js': path.join(CODE, 'aimant.js'),
     'version.json': path.join(TEMP, 'version.json'),
   },
 }));

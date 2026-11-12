@@ -6,28 +6,38 @@
 <title>Tok&amp;Track</title>
 <!-- Modèle utilisé par suivi_tokens.js : les données sont injectées à la place de __DONNEES__. -->
 <style>
+/* Univers « magnétique » : les tokens ne sont pas pistés, ils sont attirés vers toi.
+   Fond doré (vagues de lumière et fils lumineux), aimant rouge, tokens dorés.
+   Deux thèmes : clair et sombre. */
 :root {
   color-scheme: light;
-  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-  --grid: #e1e0d9; --axis: #c3c2b7; --ring: rgba(11,11,11,0.10); --hover: rgba(11,11,11,0.04);
-  --accent: #2a78d6; --other: #b5b3ab; --ok: #0ca30c; --ok-ink: #006300;
-  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #6250d6;
-}
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
-    color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
-    --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --hover: rgba(255,255,255,0.05);
-    --accent: #3987e5; --other: #5d5c57; --ok: #0ca30c; --ok-ink: #0ca30c;
-    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9;
-  }
+  --page: #fbf5e4; --surface: rgba(255,253,247,0.93); --ink: #1d1708; --ink-2: #5d5440; --muted: #8c8268;
+  --grid: #efe5cb; --axis: #dccca3; --ring: rgba(120,90,20,0.16); --hover: rgba(120,90,20,0.06);
+  --accent: #a87400; --on-accent: #1d1708; --other: #c9bd9e; --ok: #0f9f5f; --ok-ink: #0b7a49;
+  --s1: #2f6fe0; --s2: #e5484d; --s3: #0fa38a; --s4: #d99a00; --s5: #d6578f; --s6: #4d8f0f; --s7: #7c5ce0;
+  --nord: #e5484d; --sud: #2f6fe0;
+  --aimant-corps: #e5484d; --aimant-pointe: #9aa4b2; --token: #d9a200; --token-halo: 0;
+  --halo-nord: transparent; --halo-sud: transparent;
+  --reflet: rgba(255,255,255,0.7); --ombre: 0 12px 28px -18px rgba(110,80,10,0.45);
+  --valeur: linear-gradient(180deg, #1d1708, #5d4a1a);
+  --or-fond: #f6e7b8; --or-clair: #fff6d6; --or-sombre: #e2c56a; --or-fil: #ffffff; --or-halo: #f0c43a;
+  --barre: linear-gradient(90deg, #d9a200, #f5d76e); --remplissage: linear-gradient(90deg, #c48a00, #f0c44a);
+  --bouton: linear-gradient(180deg, #f7cf45, #e0a800); --lueur: rgba(224,168,0,0.45);
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
-  --grid: #2c2c2a; --axis: #383835; --ring: rgba(255,255,255,0.10); --hover: rgba(255,255,255,0.05);
-  --accent: #3987e5; --other: #5d5c57; --ok: #0ca30c; --ok-ink: #0ca30c;
-  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9;
+  --page: #120d03; --surface: rgba(24,19,9,0.9); --ink: #f6f0e2; --ink-2: #cbbf9f; --muted: #918667;
+  --grid: #2c2414; --axis: #43381f; --ring: rgba(255,215,120,0.16); --hover: rgba(255,215,120,0.07);
+  --accent: #f5c518; --on-accent: #1a1400; --other: #5a4f38; --ok: #34d399; --ok-ink: #34d399;
+  --s1: #4f8cff; --s2: #ff5a5f; --s3: #2dd4bf; --s4: #f5c518; --s5: #f472b6; --s6: #84cc16; --s7: #a78bfa;
+  --nord: #ff5a5f; --sud: #4f8cff;
+  --aimant-corps: #e5484d; --aimant-pointe: #e6dcc4; --token: #f5c518; --token-halo: 1;
+  --halo-nord: transparent; --halo-sud: transparent;
+  --reflet: rgba(255,235,180,0.05); --ombre: 0 12px 30px -20px rgba(0,0,0,0.9);
+  --valeur: linear-gradient(180deg, #fffaf0, #e8cf86);
+  --or-fond: #2b1f03; --or-clair: #c99a06; --or-sombre: #0d0901; --or-fil: #fff3a6; --or-halo: #ffd84a;
+  --barre: linear-gradient(90deg, #f5c518, #fff1a8); --remplissage: linear-gradient(90deg, #c99a06, #ffe27a);
+  --bouton: linear-gradient(180deg, #ffd84d, #f0b400); --lueur: rgba(245,197,24,0.7);
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
@@ -43,7 +53,7 @@ h2 { font-size: 15px; margin: 0 0 2px; }
 .seg { display: inline-flex; border: 1px solid var(--ring); border-radius: 8px; overflow: hidden; background: var(--surface); }
 .seg button { border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 13px; padding: 6px 14px; cursor: pointer; }
 .seg button + button { border-left: 1px solid var(--ring); }
-.seg button[aria-pressed="true"] { background: var(--accent); color: #fff; font-weight: 600; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 input[type=text], input[type=date] { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--ring); border-radius: 7px; padding: 5px 9px; }
 input[type=text] { width: 190px; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -94,7 +104,7 @@ tfoot td { font-weight: 650; border-bottom: 0; }
 .choix { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .choix .cache { margin-left: auto; font-size: 13px; color: var(--ink-2); display: flex; gap: 8px; align-items: center; cursor: pointer; }
 .choix select { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--ring); border-radius: 7px; padding: 5px 8px; cursor: pointer; }
-.btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 #tip { position: fixed; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--ring); border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.14); padding: 9px 11px; font-size: 12px; min-width: 190px; display: none; z-index: 10; }
 #tip b { display: block; margin-bottom: 5px; font-size: 13px; }
 #tip .l { display: grid; grid-template-columns: 10px 1fr auto; gap: 7px; align-items: center; padding: 1px 0; }
@@ -103,12 +113,71 @@ tfoot td { font-weight: 650; border-bottom: 0; }
 #tip .t { border-top: 1px solid var(--grid); margin-top: 5px; padding-top: 5px; font-weight: 600; display: flex; justify-content: space-between; }
 .empty { color: var(--muted); padding: 30px 0; text-align: center; }
 footer { color: var(--muted); font-size: 12px; margin-top: 22px; }
+
+/* ---------------------------------------------------------------- en-tête */
+/* L'aimant est à gauche ; ses tokens traversent toute la largeur de l'en-tête,
+   derrière le titre et le menu. */
+header { position: relative; align-items: center; min-height: 78px; padding: 0 0 0 88px; }
+#aimant { position: absolute; inset: 0 -20px 0 0; width: calc(100% + 20px); height: 100%; pointer-events: none; z-index: 0; }
+header > * { position: relative; z-index: 1; }
+.marque h1 { font-size: 26px; letter-spacing: -0.4px; background: linear-gradient(90deg, var(--ink) 0%, var(--ink-2) 60%, var(--accent) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.marque .sub { margin-top: 1px; }
+.theme { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.theme select { font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--ring); border-radius: 7px; padding: 5px 8px; cursor: pointer; }
+.wrap { position: relative; z-index: 1; }
+
+/* ----------------------------------------------------------- style magnétique */
+body {
+  background:
+    radial-gradient(1100px 600px at 92% -12%, var(--halo-sud), transparent 60%),
+    radial-gradient(900px 520px at -12% 112%, var(--halo-nord), transparent 60%),
+    var(--page);
+  background-attachment: fixed;
+}
+.card, .tile, .ia {
+  background: linear-gradient(180deg, var(--reflet), transparent 46%), var(--surface);
+  box-shadow: inset 0 1px 0 var(--reflet), var(--ombre);
+}
+.tile { position: relative; overflow: hidden; transition: transform .25s ease, box-shadow .25s ease; }
+.tile::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; background: var(--barre); opacity: .85; }
+/* Au survol, la tuile est « attirée » vers le haut. */
+.tile:hover { transform: translateY(-3px); box-shadow: inset 0 1px 0 var(--reflet), 0 14px 30px -14px var(--lueur); }
+.tile .v { background: var(--valeur); -webkit-background-clip: text; background-clip: text; color: transparent; }
+button.ia { transition: transform .2s ease, border-color .2s ease; }
+button.ia:hover { transform: translateY(-2px); border-color: var(--lueur); }
+.ia[aria-pressed="true"] { box-shadow: 0 0 0 1px var(--accent) inset, 0 0 18px -6px var(--lueur); }
+.seg button[aria-pressed="true"], .btn[aria-pressed="true"] { background: var(--bouton); box-shadow: 0 0 14px -4px var(--lueur); }
+.bars-h .fill { background: var(--remplissage); box-shadow: 0 0 10px -3px var(--lueur); }
+@media (prefers-reduced-motion: reduce) {
+  .tile, button.ia { transition: none; }
+  .tile:hover, button.ia:hover { transform: none; }
+}
 </style>
+<script>
+// Applique le thème avant l'affichage (pas de clignotement) : le choix mémorisé,
+// sinon celui du système. (Anciennes valeurs : « magnet » = sombre, « auto » = système.)
+(function () {
+  let t = null;
+  try { t = localStorage.getItem('toktrack-theme'); } catch (e) { /* pas de mémoire */ }
+  if (t === 'magnet') t = 'dark';
+  if (t !== 'light' && t !== 'dark') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.documentElement.dataset.theme = t;
+})();
+</script>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>Tok&amp;Track</h1>
+    <canvas id="aimant" aria-hidden="true"></canvas>
+    <div class="marque">
+      <div><h1>Tok&amp;Track</h1><div class="sub">Les tokens viennent à toi</div></div>
+    </div>
+    <label class="theme">Thème
+      <select id="theme">
+        <option value="light">Clair</option>
+        <option value="dark">Sombre</option>
+      </select>
+    </label>
   </header>
 
   <div class="card" id="carteIA" style="margin-bottom:16px">
@@ -163,6 +232,7 @@ footer { color: var(--muted); font-size: 12px; margin-top: 22px; }
 </div>
 <div id="tip"></div>
 
+<script>/*__AIMANT__*/</script>
 <script>
 const DONNEES = /*__DONNEES__*/ { genere: '', lignes: [], colonnes: [] };
 
@@ -585,7 +655,21 @@ $('export').addEventListener('click', () => {
 });
 addEventListener('resize', () => { graphique(filtrer()); quota(); });
 
-$('pied').textContent = `Généré le ${DONNEES.genere} par Tok&Track à partir des conversations enregistrées sur ce PC (Antigravity, Claude Code, GitHub Copilot, Cline / Roo / Kilo, Gemini CLI, OpenAI Codex) et des exports claude.ai, complétées par l’historique local. Les outils marqués ≈ sont des estimations. Relance lancer.cmd pour mettre à jour.`;
+$('pied').textContent = `Généré le ${DONNEES.genere} par Tok&Track à partir des conversations enregistrées sur cet ordinateur (Antigravity, Claude Code, GitHub Copilot, Cline / Roo / Kilo, Gemini CLI, OpenAI Codex) et des exports claude.ai, complétées par l’historique local. Les outils marqués ≈ sont des estimations. Rouvre Tok&Track pour mettre à jour.`;
+
+// ------------------------------------------------------------------ thème
+const choixTheme = $('theme');
+choixTheme.value = document.documentElement.dataset.theme;
+choixTheme.addEventListener('change', () => {
+  document.documentElement.dataset.theme = choixTheme.value;
+  try { localStorage.setItem('toktrack-theme', choixTheme.value); } catch (e) { /* choix non mémorisé */ }
+  logo && logo.redessiner();
+  fond && fond.redessiner();
+});
+const fond = typeof fondOndes === 'function' ? fondOndes() : null; // lignes ondulées aspirées vers un point
+const logo = typeof aimant === 'function' ? aimant($('aimant'), { enTete: true, tokens: 0 }) : null;
+if (typeof tokensSouris === 'function') tokensSouris(logo); // la souris lâche des tokens attirés par l'aimant
+
 rendre();
 </script>
 </body>
