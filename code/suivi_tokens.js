@@ -41,23 +41,36 @@ if (!fs.existsSync(path.join(ICI, 'config.json'))) fs.writeFileSync(path.join(IC
 const avecAimant = html => html.replace('/*__AIMANT__*/', () => ressource('aimant.js').replace(/<\/script/gi, '<\\/script'));
 const lireModele = () => avecAimant(ressource('modele_tableau_de_bord.html'));
 const PAGE = path.join(ICI, 'tableau-de-bord-tokens.html');
+// Page « Les tokens arrivent… » affichée pendant le calcul, et petit fichier signal
+// qui lui dit que le tableau de bord est prêt (elle ne se recharge jamais : pas de saccade).
+const CHARGEMENT = path.join(ICI, 'chargement.html');
+const SIGNAL = path.join(ICI, 'chargement-pret.js');
+const LANCEMENT = `${process.pid}-${Date.now()}`;
 let fenetreOuverte = false;
 
-// Écrit la page d'un coup (fichier temporaire puis renommage) : la fenêtre, qui la
-// recharge pendant le calcul, ne voit jamais une page à moitié écrite.
-function ecrirePage(html) {
-  const temp = `${PAGE}.${process.pid}.tmp`;
-  fs.writeFileSync(temp, html);
-  fs.renameSync(temp, PAGE);
+// Écrit un fichier d'un coup (fichier temporaire puis renommage) : la fenêtre ne voit
+// jamais une page à moitié écrite.
+function ecrireFichier(fichier, contenu) {
+  const temp = `${fichier}.${process.pid}.tmp`;
+  fs.writeFileSync(temp, contenu);
+  fs.renameSync(temp, fichier);
 }
+const ecrirePage = html => ecrireFichier(PAGE, html);
+// Le tableau de bord (ou un message) est prêt : la page d'attente y passe toute seule.
+function signalerPret() { if (fenetreOuverte) ecrireFichier(SIGNAL, `window.__toktrackPret = ${JSON.stringify(LANCEMENT)};`); }
+
+// Page d'attente : vérifie le signal toutes les 0,6 s en chargeant chargement-pret.js,
+// sans jamais recharger la page, puis passe au tableau de bord.
+const ATTENTE_SCRIPT = `(function(){var id=${JSON.stringify(LANCEMENT)},n=0;
+function suite(){if(window.__toktrackPret===id||++n>400){location.replace('tableau-de-bord-tokens.html');return}setTimeout(verifier,600)}
+function verifier(){var s=document.createElement('script');s.src='chargement-pret.js?'+Date.now();s.onload=s.onerror=function(){s.remove();suite()};document.head.appendChild(s)}
+setTimeout(verifier,600)})();`;
 
 // Petite page de message, aux couleurs du thème choisi dans le tableau de bord, avec l'aimant
-// qui attire les tokens. « attente » : elle se recharge toute seule jusqu'à ce que le tableau
-// de bord la remplace.
+// qui attire les tokens. « attente » : la page d'attente (voir ATTENTE_SCRIPT).
 function pageMessage(texte, attente) {
   const echappe = String(texte).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-  return avecAimant(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Tok&amp;Track</title>
-${attente ? '<meta http-equiv="refresh" content="2">' : ''}
+  return avecAimant(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Tok&amp;Track${attente ? ' · chargement…' : ''}</title>
 <style>
 :root{color-scheme:light;--page:#fbf5e4;--surface:rgba(255,253,247,.9);--ring:rgba(120,90,20,.16);--ink:#1d1708;--ink-2:#5d5440;--aimant-corps:#e5484d;--aimant-pointe:#9aa4b2;--token:#d9a200;--token-halo:0;--or-fond:#f6e7b8;--or-clair:#fff6d6;--or-sombre:#e2c56a;--or-fil:#ffffff;--or-halo:#f0c43a}
 :root[data-theme="dark"]{color-scheme:dark;--page:#120d03;--surface:rgba(24,19,9,.88);--ring:rgba(255,215,120,.16);--ink:#f6f0e2;--ink-2:#cbbf9f;--aimant-pointe:#e6dcc4;--token:#f5c518;--token-halo:1;--or-fond:#2b1f03;--or-clair:#c99a06;--or-sombre:#0d0901;--or-fil:#fff3a6;--or-halo:#ffd84a}
@@ -71,7 +84,7 @@ p{margin:0;color:var(--ink-2);white-space:pre-wrap}
 </head>
 <body><div class="boite">${attente ? '<canvas id="aimant" aria-hidden="true"></canvas>' : ''}<h1>Tok&amp;Track</h1><p>${echappe}</p></div>
 <script>/*__AIMANT__*/</script>
-<script>fondOndes();${attente ? "aimant(document.getElementById('aimant'),{tokens:22});setTimeout(function(){location.reload()},1500);" : ''}</script>
+<script>fondOndes();${attente ? "aimant(document.getElementById('aimant'),{tokens:22});" + ATTENTE_SCRIPT : ''}</script>
 </body></html>`);
 }
 
@@ -858,18 +871,20 @@ async function main() {
     const { version } = JSON.parse(ressource('version.json'));
     if (await require('./mise_a_jour').miseAJour(version)) return;
   }
-  // La fenêtre s'ouvre tout de suite sur « calcul en cours » ; le tableau de bord la remplace ensuite.
+  // La fenêtre s'ouvre tout de suite sur « Les tokens arrivent… » ; elle passe au tableau
+  // de bord dès qu'il est prêt (signalerPret).
   if (o.vue === 'tableau-de-bord' && !o.sansOuvrir) {
-    ecrirePage(pageMessage('Les tokens arrivent…\nLe tableau de bord s\'affiche dans quelques secondes.', true));
-    ouvrirFenetre(PAGE);
+    try { fs.unlinkSync(SIGNAL); } catch { /* pas de signal d'un lancement précédent */ }
     fenetreOuverte = true;
+    ecrireFichier(CHARGEMENT, pageMessage('Les tokens arrivent…\nLe tableau de bord s\'affiche dans quelques secondes.', true));
+    ouvrirFenetre(CHARGEMENT);
   }
   const config = lireConfig();
 
   const donnees = extraire(config);
   if (!donnees.reponses.length) {
     const message = 'Aucune conversation trouvée dans :\n  ' + [...config.dossiersConversations, ...config.dossiersClaude].join('\n  ');
-    if (fenetreOuverte) { console.log(message); ecrirePage(pageMessage(message, false)); } else prevenir(message);
+    if (fenetreOuverte) { console.log(message); ecrirePage(pageMessage(message, false)); signalerPret(); } else prevenir(message);
     return;
   }
   if (o.vue === 'tableau-de-bord') tableauDeBord(o, config, donnees);
@@ -912,6 +927,7 @@ function tableauDeBord(o, config, { reponses, quota, ia }) {
   };
   const json = JSON.stringify(donnees).replace(/</g, '\\u003c');
   ecrirePage(modele.replace("/*__DONNEES__*/ { genere: '', lignes: [], colonnes: [] }", () => json));
+  signalerPret();
   console.log(`
 Tableau de bord enregistré : ${PAGE}`);
   if (!o.sansOuvrir && !fenetreOuverte) ouvrirFenetre(PAGE);
@@ -1019,7 +1035,7 @@ main().catch(e => {
   // Fenêtre déjà ouverte : l'erreur s'y affiche à la place du tableau de bord.
   if (fenetreOuverte) {
     console.error('Erreur : ' + e.message);
-    try { ecrirePage(pageMessage('Une erreur est survenue :\n' + e.message, false)); return; } catch { /* boîte de dialogue */ }
+    try { ecrirePage(pageMessage('Une erreur est survenue :\n' + e.message, false)); signalerPret(); return; } catch { /* boîte de dialogue */ }
   }
   prevenir('Erreur : ' + e.message, true);
 });
