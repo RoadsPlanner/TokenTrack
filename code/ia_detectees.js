@@ -37,13 +37,16 @@ function maisonsWsl() {
   if (maisonsWslTrouvees) return maisonsWslTrouvees;
   maisonsWslTrouvees = [];
   if (process.platform !== 'win32' || !options.wsl) return maisonsWslTrouvees;
+  // Seulement les distributions déjà démarrées : lire \\wsl.localhost réveillerait WSL,
+  // ce qui peut prendre plus d'une minute. Ce qui a été compté avant reste dans l'historique.
   let sortie = '';
   try {
-    sortie = require('child_process').execFileSync('reg', ['query', 'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Lxss', '/s', '/v', 'DistributionName'],
-      { encoding: 'utf8', timeout: 5000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] });
+    sortie = require('child_process').execFileSync('wsl.exe', ['--list', '--running', '--quiet'],
+      { timeout: 5000, windowsHide: true, stdio: ['ignore', 'pipe', 'ignore'] }).toString('utf16le');
   } catch { return maisonsWslTrouvees; }
-  for (const m of sortie.matchAll(/DistributionName\s+REG_SZ\s+(\S.*?)\s*$/gm)) {
-    const distribution = m[1];
+  for (const ligne of sortie.split(/\r?\n/)) {
+    const distribution = ligne.replace(/\0/g, '').trim();
+    if (!distribution) continue;
     if (/^docker-desktop/i.test(distribution)) continue;
     const racine = `\\\\wsl.localhost\\${distribution}`;
     const home = path.join(racine, 'home');

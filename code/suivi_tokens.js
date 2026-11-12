@@ -38,6 +38,45 @@ const ICI = path.join(LOCAL, WIN || MAC ? 'Tok&Track' : 'tok-track');
 fs.mkdirSync(path.join(ICI, 'exports-claude-ai'), { recursive: true });
 if (!fs.existsSync(path.join(ICI, 'config.json'))) fs.writeFileSync(path.join(ICI, 'config.json'), ressource('config.json'));
 const lireModele = () => ressource('modele_tableau_de_bord.html');
+const PAGE = path.join(ICI, 'tableau-de-bord-tokens.html');
+let fenetreOuverte = false;
+
+// Écrit la page d'un coup (fichier temporaire puis renommage) : la fenêtre, qui la
+// recharge pendant le calcul, ne voit jamais une page à moitié écrite.
+function ecrirePage(html) {
+  const temp = `${PAGE}.${process.pid}.tmp`;
+  fs.writeFileSync(temp, html);
+  fs.renameSync(temp, PAGE);
+}
+
+// Petite page de message. « attente » : elle se recharge chaque seconde, jusqu'à ce
+// que le tableau de bord la remplace.
+function pageMessage(texte, attente) {
+  const echappe = String(texte).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Tok&amp;Track</title>
+${attente ? '<meta http-equiv="refresh" content="1">' : ''}
+<style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;font:16px system-ui,sans-serif;background:#f6f7f9;color:#222}
+@media(prefers-color-scheme:dark){body{background:#16181c;color:#e8e8e8}}
+div{text-align:center;max-width:36em;padding:1em;white-space:pre-wrap}h1{font-size:1.4em}</style></head>
+<body><div><h1>📊 Tok&amp;Track</h1><p>${echappe}</p></div></body></html>`;
+}
+
+// Un seul Tok&Track à la fois : deux lancements en même temps (double-clic répété)
+// écriraient le même historique. Le verrou d'un lancement arrêté brutalement expire.
+function seulLancement() {
+  const verrou = path.join(ICI, 'en-cours.pid');
+  try {
+    const recent = Date.now() - fs.statSync(verrou).mtimeMs < 5 * 60 * 1000;
+    const pid = Number(fs.readFileSync(verrou, 'utf8'));
+    // (process.ppid : l'ancienne version qui vient de relancer celle-ci après une mise à jour)
+    if (recent && pid && pid !== process.pid && pid !== process.ppid) {
+      try { process.kill(pid, 0); return false; } catch (e) { if (e.code === 'EPERM') return false; }
+    }
+  } catch { /* pas de verrou */ }
+  fs.writeFileSync(verrou, String(process.pid));
+  process.on('exit', () => { try { if (fs.readFileSync(verrou, 'utf8') === String(process.pid)) fs.unlinkSync(verrou); } catch { /* déjà retiré */ } });
+  return true;
+}
 
 // L'appli tourne sans console : les messages importants s'affichent dans une boîte de dialogue.
 // (Le texte passe par une variable d'environnement, jamais dans la commande elle-même.)
@@ -560,7 +599,7 @@ function fusionnerHistorique(fichier, nouvelles, releves) {
   for (const q of releves) quota.set(q.t, q);
   const lignes = [...tout.values()].sort((a, b) => (a.date + a.heure).localeCompare(b.date + b.heure));
   const releveTries = [...quota.values()].sort((a, b) => a.t - b.t);
-  const temp = fichier + '.tmp';
+  const temp = `${fichier}.${process.pid}.tmp`;
   fs.writeFileSync(temp, JSON.stringify({
     version: 2,
     misAJour: new Date().toISOString(),
@@ -746,18 +785,30 @@ function versCsv(entetes, lignes, separateur) {
 // ---------------------------------------------------------------- principal
 
 async function main() {
+  const o = lireOptions(process.argv.slice(2));
+  if (o.aide) { console.log(AIDE); return; }
+  if (!seulLancement()) {
+    // L'autre lancement ouvre déjà la fenêtre : rien à faire.
+    console.log('Tok&Track est déjà en train de calculer : sa fenêtre va s\'afficher.');
+    return;
+  }
   // Version installée, lancée par un clic (sans options) : vérifie d'abord les mises à jour.
   if (SEA && process.argv.length <= 2) {
     const { version } = JSON.parse(ressource('version.json'));
     if (await require('./mise_a_jour').miseAJour(version)) return;
   }
-  const o = lireOptions(process.argv.slice(2));
-  if (o.aide) { console.log(AIDE); return; }
+  // La fenêtre s'ouvre tout de suite sur « calcul en cours » ; le tableau de bord la remplace ensuite.
+  if (o.vue === 'tableau-de-bord' && !o.sansOuvrir) {
+    ecrirePage(pageMessage('Calcul de tes tokens en cours…\nLe tableau de bord s\'affiche dans quelques secondes.', true));
+    ouvrirFenetre(PAGE);
+    fenetreOuverte = true;
+  }
   const config = lireConfig();
 
   const donnees = extraire(config);
   if (!donnees.reponses.length) {
-    prevenir('Aucune conversation trouvée dans :\n  ' + [...config.dossiersConversations, ...config.dossiersClaude].join('\n  '));
+    const message = 'Aucune conversation trouvée dans :\n  ' + [...config.dossiersConversations, ...config.dossiersClaude].join('\n  ');
+    if (fenetreOuverte) { console.log(message); ecrirePage(pageMessage(message, false)); } else prevenir(message);
     return;
   }
   if (o.vue === 'tableau-de-bord') tableauDeBord(o, config, donnees);
@@ -799,11 +850,10 @@ function tableauDeBord(o, config, { reponses, quota, ia }) {
     lignes: reponses.map(r => [r.date, r.projet, r.modele, r.conversation, r.entree, r.sortie, r.cache, r.reflexion, r.outil, r.heure]),
   };
   const json = JSON.stringify(donnees).replace(/</g, '\\u003c');
-  const sortie = path.join(ICI, 'tableau-de-bord-tokens.html');
-  fs.writeFileSync(sortie, modele.replace("/*__DONNEES__*/ { genere: '', lignes: [], colonnes: [] }", json));
+  ecrirePage(modele.replace("/*__DONNEES__*/ { genere: '', lignes: [], colonnes: [] }", json));
   console.log(`
-Tableau de bord enregistré : ${sortie}`);
-  if (!o.sansOuvrir) ouvrirFenetre(sortie);
+Tableau de bord enregistré : ${PAGE}`);
+  if (!o.sansOuvrir && !fenetreOuverte) ouvrirFenetre(PAGE);
 }
 
 // Ouvre la page dans sa propre fenêtre (mode « application » d'Edge, Chrome ou Brave :
@@ -905,5 +955,10 @@ function afficher(o, config, { reponses: toutes, nbConversations }) {
 
 main().catch(e => {
   process.exitCode = 1;
+  // Fenêtre déjà ouverte : l'erreur s'y affiche à la place du tableau de bord.
+  if (fenetreOuverte) {
+    console.error('Erreur : ' + e.message);
+    try { ecrirePage(pageMessage('Une erreur est survenue :\n' + e.message, false)); return; } catch { /* boîte de dialogue */ }
+  }
   prevenir('Erreur : ' + e.message, true);
 });
