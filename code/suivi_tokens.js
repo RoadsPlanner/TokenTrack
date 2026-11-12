@@ -246,6 +246,45 @@ const texte = c => (c && Buffer.isBuffer(c.brut) ? c.brut.toString('utf8') : und
 
 // ------------------------------------------------ extraction des réponses
 
+// --------------------------------------------- fichiers déjà lus
+// Les réponses d'un fichier déjà lu sont dans l'historique : s'il n'a pas changé
+// (même taille, même date), on ne le relit pas. Relire ~1 Go de conversations à
+// chaque lancement prenait plusieurs minutes quand le disque n'était pas en cache.
+// La mémoire est remise à zéro si la version ou les réglages de classement changent.
+const dejaLus = { avant: {}, apres: {}, fichier: null, cle: '' };
+
+function chargerDejaLus(config) {
+  dejaLus.fichier = path.join(ICI, 'fichiers-lus.json');
+  dejaLus.cle = JSON.stringify([JSON.parse(ressource('version.json')).version, config.sousProjets || [], config.caracteresParToken || 3.5]);
+  dejaLus.avant = {};
+  dejaLus.apres = {};
+  if (!fs.existsSync(config.fichierHistorique)) return; // sans historique, tout doit être relu
+  try {
+    const m = JSON.parse(fs.readFileSync(dejaLus.fichier, 'utf8'));
+    if (m.cle === dejaLus.cle) dejaLus.avant = m.fichiers || {};
+  } catch { /* première fois */ }
+}
+
+// Empreinte d'un fichier (et de ses fichiers liés, ex. -wal d'une base SQLite).
+function empreinte(fichiers) {
+  return fichiers.map(f => { try { const s = fs.statSync(f); return `${s.size}:${Math.round(s.mtimeMs)}`; } catch { return '-'; } }).join('|');
+}
+
+// true : fichier inchangé depuis la dernière lecture, à sauter.
+function inchange(fichier, lies = []) {
+  const e = empreinte([fichier, ...lies]);
+  if (dejaLus.avant[fichier] === e) { dejaLus.apres[fichier] = e; return true; }
+  return false;
+}
+// À appeler une fois le fichier lu sans erreur.
+function marquerLu(fichier, lies = []) { dejaLus.apres[fichier] = empreinte([fichier, ...lies]); }
+
+function enregistrerDejaLus() {
+  const temp = `${dejaLus.fichier}.${process.pid}.tmp`;
+  fs.writeFileSync(temp, JSON.stringify({ cle: dejaLus.cle, fichiers: dejaLus.apres }));
+  fs.renameSync(temp, dejaLus.fichier);
+}
+
 // Copie la base (avec ses fichiers -wal et -shm) pour ne jamais toucher l'original.
 function copier(fichierDb, dossierTemp) {
   const cible = path.join(dossierTemp, path.basename(fichierDb));
@@ -303,11 +342,14 @@ function extraireAntigravity(config) {
     for (const dossier of config.dossiersConversations) {
       if (!fs.existsSync(dossier)) continue;
       for (const nom of fs.readdirSync(dossier).filter(f => f.endsWith('.db'))) {
+        const original = path.join(dossier, nom);
+        const lies = [original + '-wal'];
+        if (inchange(original, lies)) continue;
         let db;
         try {
-          db = new DatabaseSync(copier(path.join(dossier, nom), dossierTemp));
+          db = new DatabaseSync(copier(original, dossierTemp));
           const tables = db.prepare("select name from sqlite_master where type='table'").all().map(t => t.name);
-          if (!tables.includes('gen_metadata') || !tables.includes('trajectory_metadata_blob')) continue;
+          if (!tables.includes('gen_metadata') || !tables.includes('trajectory_metadata_blob')) { marquerLu(original, lies); continue; }
           const dossierP = dossierProjet(db);
           const projet = sousProjet(() => {
             let contenu = '';
@@ -342,6 +384,7 @@ function extraireAntigravity(config) {
               reflexion: n(9),
             });
           }
+          marquerLu(original, lies);
         } catch (e) {
           console.error(`Conversation Antigravity ignorée (${nom}) : ${e.message}`);
         } finally {
@@ -372,8 +415,10 @@ function extraireClaude(config) {
     try { if (fs.existsSync(dossier)) parcourir(dossier); } catch (e) { console.error(`Dossier Claude illisible (${dossier}) : ${e.message}`); }
   }
   for (const fichier of fichiers) {
+    if (inchange(fichier)) continue;
     let lignes;
     try { lignes = fs.readFileSync(fichier, 'utf8').split('\n'); } catch (e) { console.error(`Session Claude ignorée (${fichier}) : ${e.message}`); continue; }
+    marquerLu(fichier);
     const contenu = () => lignes.join(' ');
     const projets = new Map(); // dossier -> projet, calculé une fois par session
     // Un « cd » dans un sous-dossier pendant la session reste rattaché au dossier de départ.
@@ -611,6 +656,7 @@ function fusionnerHistorique(fichier, nouvelles, releves) {
 }
 
 function extraire(config) {
+  chargerDejaLus(config);
   const aides = { nomDossier, jourLocal, sousProjet, sousProjets: config.sousProjets || [], caracteresParToken: config.caracteresParToken || 3.5 };
   const copilot = lireCopilot(aides);
   const nouvelles = [
@@ -623,6 +669,7 @@ function extraire(config) {
     ...lireCodex(aides),
   ];
   const { reponses, quota, ajoutees } = fusionnerHistorique(config.fichierHistorique, nouvelles, lireQuota(config));
+  enregistrerDejaLus(); // après l'historique : les réponses des fichiers notés y sont bien
   const conversations = new Set(reponses.map(r => r.outil + r.conversation));
   return { reponses, quota, nbConversations: conversations.size, ajoutees, ia: bilanIA(reponses), copilot: copilot.stats };
 }
